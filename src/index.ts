@@ -47,7 +47,14 @@ const supportedParsers = {
 
 let m3u8stream = ((playlistURL: string, options: m3u8stream.Options = {}): m3u8stream.Stream => {
   const stream = new PassThrough() as m3u8stream.Stream;
-  const chunkReadahead = options.chunkReadahead || 3;
+
+  const waitBetweenChunks = true;
+  let chunkReadahead = options.chunkReadahead || 3;
+  if (waitBetweenChunks) {
+    // Enforce max 1 concurrent request if waiting
+    chunkReadahead = 1;
+  }
+
   // 20 seconds.
   const liveBuffer = options.liveBuffer || 20000;
   const requestOptions = options.requestOptions;
@@ -79,6 +86,7 @@ let m3u8stream = ((playlistURL: string, options: m3u8stream.Options = {}): m3u8s
     req.on('end', () => callback(null, size));
   }, { concurrency: 1 });
 
+  let lastRequestDoneTime = 0;
   let segmentNumber = 0;
   let downloaded = 0;
   const requestQueue = new Queue((segment: Item, callback: Callback): void => {
@@ -89,7 +97,17 @@ let m3u8stream = ((playlistURL: string, options: m3u8stream.Options = {}): m3u8s
       });
     }
     let req = miniget(new URL(segment.url, playlistURL).toString(), reqOptions);
-    req.on('error', callback);
+
+    req.on('error', (err) => {
+      if (waitBetweenChunks) {
+        setTimeout(() => {
+          callback(err);
+        }, 2000);
+      } else {
+        callback(err);
+      }
+    });
+
     forwardEvents(req);
     streamQueue.push(req, (_, size) => {
       downloaded += +size;
@@ -99,7 +117,23 @@ let m3u8stream = ((playlistURL: string, options: m3u8stream.Options = {}): m3u8s
         duration: segment.duration,
         url: segment.url,
       }, requestQueue.total, downloaded);
-      callback(null);
+
+      if (waitBetweenChunks) {
+        // TODO: Confirm this is working as expected
+
+        // Wait a minimum duration between requests
+        const minWait = 3000 + Math.random() * 2000;
+        const waitTime = Math.max(minWait - (Date.now() - lastRequestDoneTime), 0);
+        if (waitTime > 0) {
+          console.log('waitTime=', waitTime);
+        }
+        lastRequestDoneTime = Date.now();
+        setTimeout(() => {
+          callback(null);
+        }, waitTime);
+      } else {
+        callback(null);
+      }
     });
   }, { concurrency: chunkReadahead });
 
