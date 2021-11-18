@@ -138,6 +138,7 @@ let m3u8stream = ((playlistURL: string, options: m3u8stream.Options = {}): m3u8s
   }, { concurrency: chunkReadahead });
 
   const onError = (err: Error): void => {
+    console.log('debug: stream onError', err);
     stream.emit('error', err);
     // Stop on any error.
     stream.end();
@@ -153,6 +154,7 @@ let m3u8stream = ((playlistURL: string, options: m3u8stream.Options = {}): m3u8s
   let lastRefresh: number;
 
   const onQueuedEnd = (err: Error | null): void => {
+    // console.log('debug stream onQueuedEnd: err=', err);
     currSegment = null;
     if (err) {
       onError(err);
@@ -173,6 +175,7 @@ let m3u8stream = ((playlistURL: string, options: m3u8stream.Options = {}): m3u8s
 
   const refreshPlaylist = (): void => {
     lastRefresh = Date.now();
+    console.log('debug: refreshPlaylist', lastRefresh);
     currPlaylist = miniget(playlistURL, requestOptions);
     currPlaylist.on('error', onError);
     forwardEvents(currPlaylist);
@@ -246,6 +249,7 @@ let m3u8stream = ((playlistURL: string, options: m3u8stream.Options = {}): m3u8s
     currPlaylist?.destroy();
     currSegment?.destroy();
     PassThrough.prototype.end.call(stream, null);
+    console.log('debug: stream.end');
   };
 
   return stream;
