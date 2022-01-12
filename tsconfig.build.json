@@ -6,6 +6,11 @@
     "outDir": "./dist"
   },
   "files": [
-    "src/index.ts"
+    "src/index.ts",
+    "src/dash-mpd-parser.ts",
+    "src/m3u8-parser.ts",
+    "src/parser.ts",
+    "src/parse-time.ts",
+    "src/queue.ts"
   ]
 }
